@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--history",
-        default=os.environ.get("MINECHAT_HISTORY", "chat_history.txt"),
+        default=os.environ.get("MINECHAT_HISTORY", "minechat_history.txt"),
         help="Путь к файлу для сохранения истории (можно установить через MINECHAT_HISTORY)",
     )
 
