@@ -1,3 +1,5 @@
 .venv/
 .idea/
 chat_history.txt
+README_old.md
+credential.json

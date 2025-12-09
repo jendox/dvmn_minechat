@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 import aiofiles
-from aiofiles.threadpool import AsyncTextIOWrapper
 from dotenv import load_dotenv
 
 DATETIME_FORMAT = "%d.%m.%y %H:%M"
@@ -27,7 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.environ.get("MINECHAT_PORT", "5000")),
+        default=int(os.environ.get("MINECHAT_LISTEN_PORT", "5000")),
         help="Порт сервера чата (можно установить через переменную окружения MINECHAT_PORT)",
     )
 
@@ -57,7 +56,7 @@ async def chat_connection(server: str, port: int):
         raise
 
 
-async def process_messages(reader: asyncio.StreamReader, file: AsyncTextIOWrapper) -> None:
+async def process_messages(reader: asyncio.StreamReader, file) -> None:
     async for raw_message in reader:
         try:
             message = raw_message.decode().strip()
