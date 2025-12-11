@@ -171,7 +171,9 @@ async def main():
         token = await register(args.host, args.port, args.nickname, args.credentials)
 
     if not token:
-        logger.error("Не удалось зарегистрировать пользователя.")
+        message = "Не удалось зарегистрировать пользователя." \
+            if args.nickname else "Для регистрации пользователя нужно указать никнейм."
+        logger.error(message)
         return
 
     async with chat_connection(args.host, args.port) as (reader, writer):
