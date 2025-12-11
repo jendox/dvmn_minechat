@@ -2,8 +2,8 @@
 
 Набор асинхронных клиентов для чата Minechat:
 
-- **listen-minechat.py** — подключается к чату, сохраняет историю сообщений и выводит их в реальном времени.
-- **write-minechat.py** — отправляет сообщение в чат через авторизацию по токену или автоматическую регистрацию нового пользователя.
+- **listen_minechat.py** — подключается к чату, сохраняет историю сообщений и выводит их в реальном времени.
+- **write_minechat.py** — отправляет сообщение в чат через авторизацию по токену или автоматическую регистрацию нового пользователя.
 
 ---
 
@@ -39,20 +39,20 @@ uv sync
 
 # Использование
 
-# Скрипт прослушивания чата — `listen-minechat.py`
+# Скрипт прослушивания чата — `listen_minechat.py`
 
 Асинхронно подключается к чату, пишет историю в файл и выводит сообщения в терминал.
 
 ## Запуск (по умолчанию)
 
 ```bash
-uv run python listen-minechat.py
+uv run python listen_minechat.py
 ```
 
 ## Запуск с параметрами
 
 ```bash
-uv run python listen-minechat.py   --host minechat.dvmn.org   --port 5000   --history ./minechat_history.txt
+uv run python listen_minechat.py   --host minechat.dvmn.org   --port 5000   --history ./minechat_history.txt
 ```
 
 ## Переменные окружения
@@ -71,7 +71,7 @@ MINECHAT_LISTEN_PORT=5000
 MINECHAT_HISTORY=minechat_history.txt
 ```
 
-## Параметры конфигурации (`listen-minechat.py`)
+## Параметры конфигурации (`listen_minechat.py`)
 
 | Параметр       | По умолчанию           | Переменная окружения   | Описание                   |
 |----------------|------------------------|-------------------------|----------------------------|
@@ -87,7 +87,7 @@ MINECHAT_HISTORY=minechat_history.txt
 
 ---
 
-# Скрипт отправки сообщений — `write-minechat.py`
+# Скрипт отправки сообщений — `write_minechat.py`
 
 Отправляет **одно** сообщение в чат, используя:
 
@@ -99,7 +99,7 @@ MINECHAT_HISTORY=minechat_history.txt
 ## Быстрый запуск с токеном
 
 ```bash
-uv run python write-minechat.py   --message "Привет из скрипта!"   --token ваш_токен
+uv run python write_minechat.py   --message "Привет из скрипта!"   --token ваш_токен
 ```
 
 ---
@@ -109,7 +109,7 @@ uv run python write-minechat.py   --message "Привет из скрипта!" 
 Если токен не указан, но передан ник:
 
 ```bash
-uv run python write-minechat.py   --message "Всем привет!"   --nickname "NewUser123"
+uv run python write_minechat.py   --message "Всем привет!"   --nickname "NewUser123"
 ```
 
 Скрипт:
@@ -134,7 +134,7 @@ MINECHAT_CREDENTIALS=credentials.json
 
 ---
 
-## Параметры конфигурации (`write-minechat.py`)
+## Параметры конфигурации (`write_minechat.py`)
 
 | Параметр         | По умолчанию        | Переменная окружения    | Описание                                                              |
 |------------------|---------------------|---------------------------|-----------------------------------------------------------------------|

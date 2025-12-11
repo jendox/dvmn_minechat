@@ -7,6 +7,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from listen_minechat import chat_connection
+
 logger = logging.getLogger("sender")
 
 
@@ -65,7 +67,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_token(filepath: str) -> str | None:
+def read_token_from_file(filepath: str) -> str | None:
     try:
         filepath = Path(filepath)
         if not filepath.exists():
@@ -93,42 +95,42 @@ def save_credentials(credentials: dict[str, str], filepath: str) -> None:
         logger.error(f"Ошибка сохранения учетных данные: {str(error)}")
 
 
-async def register(host: str, port: int, nickname: str, filepath: str) -> tuple[str, str] | None:
-    try:
+async def register(host: str, port: int, nickname: str, filepath: str) -> str | None:
+    async with chat_connection(host, port) as (reader, writer):
         logger.info(f"Регистрация нового пользователя: {nickname}")
-        reader, writer = await asyncio.open_connection(host, port)
-        # Читаем приветствие
-        message = await reader.read(1024)
-        logger.debug(message.decode(errors="ignore").strip())
-        # Отправляем пустую строку для начала регистрации
-        await submit_message(writer)
-        # Запрос ника
-        message = await reader.read(1024)
-        logger.debug(message.decode(errors="ignore").strip())
-        await submit_message(writer, nickname)
-        # Ответ с токеном
-        message = await reader.read(1024)
-        message = message.decode(errors="ignore").strip()
-        logger.debug(message)
-        credentials = json.loads(message.split("\n", 1)[0])
-        nickname = credentials.get("nickname", nickname)
-        token = credentials.get("account_hash")
-        if not token:
-            logger.info(f"Не найден токен в ответе сервера")
+        try:
+            # Читаем приветствие
+            message = await reader.read(1024)
+            logger.debug(message.decode(errors="ignore").strip())
+            # Отправляем пустую строку для начала регистрации
+            writer.write("\n".encode())
+            await writer.drain()
+            # Запрос ника
+            message = await reader.read(1024)
+            logger.debug(message.decode(errors="ignore").strip())
+            await submit_message(writer, nickname)
+            # Ответ с токеном
+            message = await reader.read(1024)
+            message = message.decode(errors="ignore").strip()
+            logger.debug(message)
+            credentials = json.loads(message.split("\n", 1)[0])
+            token = credentials.get("account_hash")
+            if not token:
+                raise ValueError("Не найден токен в ответе сервера")
+
+            save_credentials(credentials, filepath)
+            return token
+        except Exception as exc:
+            logger.error(f"Ошибка регистрации пользователя: {exc}")
             return None
 
-        save_credentials(credentials, filepath)
-        writer.close()
-        await writer.wait_closed()
-        return nickname, token
-    except Exception as exc:
-        logger.error(f"Ошибка регистрации: {exc}")
-        return None
 
-
-async def authorize(host: str, port: int, token: str) -> asyncio.StreamWriter | None:
+async def authorize(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    token: str,
+) -> None:
     try:
-        reader, writer = await asyncio.open_connection(host, port)
         # Читаем приветствие
         message = await reader.read(1024)
         logger.debug(message.decode(errors="ignore").strip())
@@ -140,20 +142,19 @@ async def authorize(host: str, port: int, token: str) -> asyncio.StreamWriter | 
         logger.debug(message)
         credentials = json.loads(message.split("\n", 1)[0])
         if credentials is None:
-            logger.error("Неизвестный токен. Проверьте его или зарегистрируйте заново.")
-            writer.close()
-            await writer.wait_closed()
-            return None
-        return writer
+            raise ValueError("Неизвестный токен. Проверьте его или зарегистрируйте заново.")
+
     except Exception as exc:
         logger.error(f"Ошибка авторизации: {str(exc)}")
+        raise
 
 
-async def submit_message(writer: asyncio.StreamWriter, message: str = "") -> None:
+async def submit_message(writer: asyncio.StreamWriter, message: str) -> None:
     logger.debug(message)
     clean_message = message.strip().replace("\n", " ")
     writer.write(f"{clean_message}\n\n".encode())
     await writer.drain()
+    await asyncio.sleep(0.2)
 
 
 async def main():
@@ -164,32 +165,21 @@ async def main():
     load_dotenv()
     args = parse_args()
 
-    token = args.token
-    if not token:
-        token = get_token(args.credentials)
+    token = args.token or read_token_from_file(args.credentials)
 
     if not token and args.nickname:
-        result = await register(args.host, args.port, args.nickname, args.credentials)
-        if not result:
-            logger.error("Не удалось зарегистрировать пользователя.")
-            return
-        nickname, token = result
-    elif not token:
-        logger.error("Не указаны токен и никнейм.")
+        token = await register(args.host, args.port, args.nickname, args.credentials)
+
+    if not token:
+        logger.error("Не удалось зарегистрировать пользователя.")
         return
 
-    writer = await authorize(args.host, args.port, token)
-    if not writer:
-        logger.error("Не удалось авторизоваться.")
-        return
-    try:
-        await submit_message(writer, args.message)
-    except Exception:
-        logger.error("Не удалось отправить сообщение.")
-    finally:
-        if writer and not writer.is_closing():
-            writer.close()
-            await writer.wait_closed()
+    async with chat_connection(args.host, args.port) as (reader, writer):
+        try:
+            await authorize(reader, writer, token)
+            await submit_message(writer, args.message)
+        except Exception:
+            logger.error("Не удалось отправить сообщение.")
 
 
 if __name__ == "__main__":
