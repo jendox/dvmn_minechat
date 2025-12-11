@@ -78,7 +78,7 @@ def read_token_from_file(filepath: str) -> str | None:
             credentials_data = json.load(file)
         return credentials_data["account_hash"]
 
-    except (json.JSONDecodeError, KeyError, IOError) as error:
+    except (json.JSONDecodeError, KeyError, OSError) as error:
         logger.warning(f"Ошибка чтения учетных данных: {str(error)}")
         return None
 
@@ -91,7 +91,7 @@ def save_credentials(credentials: dict[str, str], filepath: str) -> None:
         with open(filepath, "w", encoding="utf-8") as file:
             json.dump(credentials, file, indent=2, ensure_ascii=False)
         logger.info(f"Учетные данные сохранены в {filepath}")
-    except IOError as error:
+    except OSError as error:
         logger.error(f"Ошибка сохранения учетных данные: {str(error)}")
 
 
@@ -103,7 +103,7 @@ async def register(host: str, port: int, nickname: str, filepath: str) -> str | 
             message = await reader.read(1024)
             logger.debug(message.decode(errors="ignore").strip())
             # Отправляем пустую строку для начала регистрации
-            writer.write("\n".encode())
+            writer.write(b"\n")
             await writer.drain()
             # Запрос ника
             message = await reader.read(1024)
@@ -157,6 +157,19 @@ async def submit_message(writer: asyncio.StreamWriter, message: str) -> None:
     await asyncio.sleep(0.2)
 
 
+async def get_token(args: argparse.Namespace) -> str | None:
+    token = args.token or read_token_from_file(args.credentials)
+    if not token and args.nickname:
+        token = await register(args.host, args.port, args.nickname, args.credentials)
+
+    if not token:
+        message = "Не удалось зарегистрировать пользователя." \
+            if args.nickname else "Для регистрации пользователя нужно указать никнейм."
+        logger.error(message)
+
+    return token
+
+
 async def main():
     logging.basicConfig(
         level=logging.DEBUG,
@@ -165,15 +178,8 @@ async def main():
     load_dotenv()
     args = parse_args()
 
-    token = args.token or read_token_from_file(args.credentials)
-
-    if not token and args.nickname:
-        token = await register(args.host, args.port, args.nickname, args.credentials)
-
+    token = await get_token(args)
     if not token:
-        message = "Не удалось зарегистрировать пользователя." \
-            if args.nickname else "Для регистрации пользователя нужно указать никнейм."
-        logger.error(message)
         return
 
     async with chat_connection(args.host, args.port) as (reader, writer):
